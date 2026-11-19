@@ -58,9 +58,34 @@ public:
         constexpr auto updateNupcol = &WGStateNormalizer::updateNupcolWGState;
         (wellModel.*updateNupcol)();
     }
+
+    template<class WellModel>
+    static void clearDeserializedStatePending(WellModel& wellModel)
+    {
+        constexpr auto pending = &WGStateNormalizer::deserialized_state_pending_;
+        wellModel.*pending = false;
+    }
 };
 
 } // namespace detail
+
+//! \brief Let the next beginReportStep() initialise the well state again.
+//!
+//! Since OPM/opm-simulators#7405 (2026-08-28), prepareDeserialize() marks the
+//! well state as freshly deserialized, and the next beginReportStep() skips
+//! initializeWellState() and keeps the restored state as it is. That is right
+//! for a restart, where the snapshot belongs to the report step being started.
+//! In the adjoint replay the snapshot is the state at the end of substep k-1,
+//! possibly in the previous report step, so a well that opens at report step k
+//! would be missing from the well state (out_of_range from
+//! GlobalWellInfo::in_producing_group in beginTimeStep). Clearing the flag
+//! after the restore keeps the behaviour the replay was written against.
+template<class WellModel>
+void clearDeserializedStatePending(WellModel& wellModel)
+{
+    detail::WGStateNormalizer<typename WellModel::Scalar,
+                              typename WellModel::IndexTraits>::clearDeserializedStatePending(wellModel);
+}
 
 //! \brief Synchronize the internal WGState copies (last_valid, nupcol)
 //!        with the active one so a pre-step snapshot can later be

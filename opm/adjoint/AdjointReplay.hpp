@@ -44,6 +44,7 @@
 #include <opm/adjoint/AdjointMeta.hpp>
 #include <opm/adjoint/AdjointParameters.hpp>
 #include <opm/adjoint/AdjointStorage.hpp>
+#include <opm/adjoint/AdjointWellModel.hpp>
 #include <opm/adjoint/AdjointDeckWarnings.hpp>
 #include <opm/adjoint/AdjointSystemIO.hpp>
 #include <opm/adjoint/AdjointResidualEvaluator.hpp>
@@ -413,6 +414,10 @@ private:
         } else {
             src.read(simulator_, group, "simulator");
         }
+        // The caller starts the episode of the substep being replayed, which
+        // may be a later report step than the snapshot's (see
+        // clearDeserializedStatePending).
+        clearDeserializedStatePending(wellModel_());
         model_().invalidateAndUpdateIntensiveQuantities(/*timeIdx=*/0);
         loadSnapshotSeconds_ += std::chrono::duration<double>(
             std::chrono::steady_clock::now() - t0).count();
