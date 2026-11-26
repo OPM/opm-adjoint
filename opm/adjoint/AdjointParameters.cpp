@@ -59,6 +59,7 @@ AdjointConfig AdjointConfig::fromParameters()
     override_(config.fdStep,           Parameters::AdjointFdStep{});
     override_(config.endpointMethod,   Parameters::AdjointEndpointMethod{});
     override_(config.permWellTerm,     Parameters::AdjointPermWellTerm{});
+    override_(config.resvDerivatives,  Parameters::AdjointResvDerivatives{});
     override_(config.endpoints,        Parameters::AdjointEndpoints{});
     override_(config.linearSolver,     Parameters::AdjointLinearSolver{});
     override_(config.linearSolverReduction,
@@ -158,6 +159,11 @@ void registerAdjointParameters()
     Parameters::Register<Parameters::AdjointPermWellTerm>
         ("Include the dJ/dperm well-coupling term (dCTF/dK) at defaulted-CTF "
          "perforations; default true, a no-op for explicit-CTF decks");
+    Parameters::Register<Parameters::AdjointResvDerivatives>
+        ("Exact derivatives of RESV-controlled producers: the cross-step term "
+         "(voidage coefficients and WCONHIST targets use field averages of the "
+         "previous substep's state) and the dependence of the coefficients on "
+         "the well's own rates; default true, a no-op without RESV controls");
 }
 
 } // namespace Opm

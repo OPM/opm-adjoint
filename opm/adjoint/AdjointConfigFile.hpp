@@ -192,6 +192,8 @@ inline void loadAdjointConfigFile(const std::string& path, AdjointConfig& config
             config.endpointMethod = *v;
         if (auto v = grad->get_optional<bool>("perm_well_term"))
             config.permWellTerm = *v;
+        if (auto v = grad->get_optional<bool>("resv_derivatives"))
+            config.resvDerivatives = *v;
     }
     if (const auto sol = pt.get_child_optional("solver")) {
         if (auto v = sol->get_optional<std::string>("linear_solver"))
