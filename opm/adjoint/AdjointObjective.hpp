@@ -222,6 +222,16 @@ public:
             Scalar sum = 0.0;
             for (std::size_t ti = 0; ti < terms_.size(); ++ti) {
                 const auto& term = terms_[ti];
+                // A well that the schedule has not defined yet at this
+                // substep is absent from the well state. Its rate is zero,
+                // as in the summary, and independent of the state, so the
+                // term has its q = 0 value here and no gradient.
+                if (!wellState.has(term.well)) {
+                    const Scalar v = termValue_(simulator, term, dt, 0.0);
+                    termValues_[ti] += v;
+                    sum += v;
+                    continue;
+                }
                 const int phasePos =
                     FluidSystem::canonicalToActivePhaseIdx(term.canonicalPhaseIdx);
                 const Scalar q =
