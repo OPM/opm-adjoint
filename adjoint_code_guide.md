@@ -386,10 +386,17 @@ and the JSON loader ([`AdjointConfigFile.hpp`](opm/adjoint/AdjointConfigFile.hpp
   (hysteresis, DRSDT/DRVDT incl. 0, VAPPARS, guide-rate group control, defaulted-CTF
   perm, well explicit quantities), *approx-replay* (RESV/VREP/REIN voidage group
   control), *neglected* (aquifers, extended network). Called from both replay and solver.
+- **`AdjointResvTerm`** ([`AdjointResvTerm.hpp`](opm/adjoint/AdjointResvTerm.hpp)) —
+  derivatives of RESV-controlled producers that the simulator's Jacobian lacks:
+  `correctJacobian` adds the dependence of the voidage coefficients on the well's own
+  rates to the control row, `collect`/`apply` add the cross-step term from the field
+  averages of the previous substep. Called from `AdjointSolver::run`; see STATUS.md
+  *RESV well-control derivatives*.
 - **`AdjointParameters`** ([`AdjointParameters.hpp`](opm/adjoint/AdjointParameters.hpp) +
   `.cpp`) — the `--adjoint-*` parameter registry (note the current defaults:
   `--adjoint-linear-solver=umfpack`, `--adjoint-gradient-method=general-ad`,
-  `--adjoint-endpoint-method=whole`, `--adjoint-perm-well-term=true`) and the resolved
+  `--adjoint-endpoint-method=whole`, `--adjoint-perm-well-term=true`,
+  `--adjoint-resv-derivatives=true`) and the resolved
   `Opm::AdjointConfig` bundle (`fromParameters` `:167`, JSON base < CLI override).
 
 ## 10. The opm-simulators hooks

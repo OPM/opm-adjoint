@@ -367,6 +367,44 @@ ctest `adjoint_fd_perm_well_spe1`. Cost: 2 whole-domain re-linearizations per
 perforation per substep — cheap (perfs ≪ cells); the AD/linearity path (plan
 §B1) would remove the re-linearization for very-many-perforation field decks.
 
+### RESV well-control derivatives (2026-11-26)
+
+A producer under RESV control (`WCONHIST`/`WCONPROD` with control mode `RESV`)
+converts its surface rates to reservoir voidage with coefficients evaluated at
+field-average PVT conditions, and a `WCONHIST` target is the voidage of the
+history rates at the same conditions. The simulator's Jacobian misses two
+dependencies of that control equation:
+
+1. **Cross-step:** the averages are those of the previous substep's converged
+   state (`rateConverter_->defineState` at the report-step start and in
+   `timeStepSucceeded`), so the control equation of substep k depends on
+   x_{k−1}. Pressure, temperature, Rsw, Rvw and salt are hydrocarbon-pore-volume
+   weighted; Rs is oil-phase-volume and Rv gas-phase-volume weighted
+   (OPM/opm-simulators 3914e3f38).
+2. **Within the step:** the coefficients use `Rs = min(qg/qo, Rs_avg)` and
+   `Rv = min(qo/qg, Rv_avg)` with the well's own rates, which are held fixed
+   while the control row is differentiated.
+
+[`AdjointResvTerm.hpp`](opm/adjoint/AdjointResvTerm.hpp) adds both: the
+cross-step term enters the right-hand side of substep k−1 (like the storage
+cross term) and the pore-volume gradient, and the rate dependence is added to
+the control row of the replayed well Jacobian. The derivative of the control
+equation with respect to the averages is a central difference on OPM's PVT
+objects; the derivatives of the averages are exact (AD). Each sweep logs
+self-checks: the recomputed coefficients and target against what the well
+model used, and the control residual.
+
+**Result (SPE1CASE1, producer on `WCONHIST RESV`, DRSDT removed, oil-rate
+objective):** FD-vs-adjoint 2.4 % → 2e-7 for a uniform pore-volume
+perturbation. Flag `--adjoint-resv-derivatives` (default on) / JSON
+`gradient.resv_derivatives`; a no-op without RESV-controlled producers. ctest
+`adjoint_fd_resv_spe1`.
+
+Scope: RESV-controlled producers, StandardWell and MultisegmentWell, serial
+runs. With several MPI ranks the term is switched off with a warning and the
+gradients are as before. RESV injectors and the group controls of the table
+below are not covered.
+
 ### Well-objective (bhp) gradient deviation on SPE1 — INVESTIGATED 2026-07-23
 
 A ~3 % (single-cell) / ~6–9 % (aggregate) FD-vs-adjoint deviation appears for
@@ -543,6 +581,7 @@ warning tags.
 | Rock compaction (poro/trans mult from pressure history) | `endTimeStep` | exact (serialized) | cross-term neglected | *(not yet auto-detected)* |
 | Max-oil / max-water saturation tracking (drives VAPPARS) | `updateMaxOilSaturation_` in `endTimeStep` | exact | neglected | via `VAPPARS` (`approx-gradient`) |
 | Well explicit quantities (F0_ wellbore storage, connection hydrostatic pressure drop from prior-state perf densities, explicit B) | `prepareTimeStep` / `computePropertiesForPressures` (`StandardWellConnections.cpp:230`) | exact (recomputed from state k−1) | known cross-term neglected | `approx-gradient` (standing note, printed whenever any other item fires) |
+| RESV well control of producers (voidage coefficients and `WCONHIST` target from the previous substep's field averages) | `rateConverter_->defineState` at `beginReportStep` / `timeStepSucceeded` | exact | **exact** in serial runs (`--adjoint-resv-derivatives`, default on); cross-term neglected with several MPI ranks | warning in parallel runs only |
 | Guide-rate group control allocation (target shared among members by guide rates from well potentials) | `BlackoilWellModelGeneric.cpp:1595` `computePotentials` → `updateGuideRates` | **exact** (converged guide rates restored, verified bitwise on gconprod/gconinje/grupcntl/model4) | d(guide-rate)/d(state) cross-term neglected — **negligible/zero for single-member or guide-rate-insensitive groups** (why `adjoint_fd_grpctrl` on SPE1_GRPCTRL still passes); can be material when ≥2 members share a target | `approx-gradient` |
 | **Reservoir-volume / voidage-replacement group control (RESV/VREP/REIN)** | `updateWellControlsAndNetwork` (group voidage target) | **not bitwise** — the effective control target is re-derived from reservoir voidage during the replay assembly | approximate | `approx-replay` |
 | Single-rate group control (ORAT/GRAT/WRAT/LRAT, GRUP) | `updateWellControlsAndNetwork` | **exact** (verified bitwise on gconprod/gconinje/grupcntl/model4) | exact apart from the guide-rate cross-term above | guide-rate row |

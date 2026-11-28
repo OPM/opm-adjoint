@@ -52,6 +52,7 @@
 #include <opm/adjoint/AdjointDeckWarnings.hpp>
 #include <opm/adjoint/AdjointReplay.hpp>
 #include <opm/adjoint/AdjointResidualEvaluator.hpp>
+#include <opm/adjoint/AdjointResvTerm.hpp>
 #include <opm/adjoint/AdjointWellAdjoint.hpp>
 #include <opm/adjoint/matrixMarketIO.hpp>
 
@@ -126,6 +127,7 @@ public:
                          ? *config_.objectiveSpec
                          : Adjoint::ObjectiveSpec::parse(config_.objective),
                      simulator.vanguard().schedule())
+        , resvTerm_(config_.resvDerivatives)
     {
         replay_.setComputeBdiag(true);
         objective_.setParallel(&parallel_);
@@ -270,6 +272,17 @@ public:
     //!        the parameter gradients.
     int run()
     {
+        if (resvTerm_.enabled() && parallel_.parallel()) {
+            // The term is serial only so far: keep the gradients a parallel
+            // run had before it, and say so if the deck is affected.
+            resvTerm_.disable();
+            if (AdjointResvTerm<TypeTag>::deckHasResvProducer(simulator_.vanguard().schedule())) {
+                OpmLog::warning("Adjoint RESV control derivatives are not available with "
+                                "multiple MPI ranks: the gradients of the RESV-controlled "
+                                "producers of this deck are approximate. Run serially for "
+                                "exact ones.");
+            }
+        }
         const auto& meta = replay_.meta();
         const int numSubsteps = static_cast<int>(meta.substeps.size());
         if (numSubsteps == 0) {
@@ -322,6 +335,9 @@ public:
             if (k == numSubsteps - 1 && !coupledSystemSolve_) {
                 checkWellContributionSparsity_();
             }
+            // RESV control rows: the voidage coefficients depend on the well's
+            // own rates, which the simulator's Jacobian holds fixed.
+            resvTerm_.correctJacobian(simulator_, !coupledSystemSolve_);
             const auto& step = meta.substeps[k];
 
             // Objective contribution of this substep (solution(0) = x_k).
@@ -343,6 +359,10 @@ public:
                     bdiagPrev[i].usmtv(-1.0, lambdaPrev[i], rhs[i]);
                 }
             }
+            // RESV controls of substep k+1 used the field averages of x_k:
+            // rhs -= (da/dx_k)^T g_{k+1}, and their pore-volume weights add
+            // g_{k+1} . da/dpvmult to the PV gradient.
+            resvTerm_.apply(simulator_, &rhs, gradientPv_);
 
             t0 = tick();
             auto& jacobian = model.linearizer().jacobian();
@@ -390,6 +410,7 @@ public:
 
             t0 = tick();
             computeWellAdjoints_(k, step.dt, lambda);
+            resvTerm_.collect(simulator_, lambdaWells_, k);
             auto tg1 = tick();
             if (generalGradients_) {
                 accumulateGeneralGradients_(step.dt, lambda, generalAd_);
@@ -410,6 +431,13 @@ public:
             bdiagPrev = replay_.bdiag();
             lambdaPrev = lambda;
         }
+        // RESV controls of substep 0 used the averages of the initial state,
+        // which has no adjoint equation: only their pore-volume term remains.
+        if (resvTerm_.pending()) {
+            replay_.loadSnapshot(-1, meta.substeps[0].reportStep);
+            resvTerm_.apply(simulator_, nullptr, gradientPv_);
+        }
+        resvTerm_.logSummary();
         timing_.total = secs(sweepStart, tick());
 
         OpmLog::info(fmt::format(
@@ -2130,6 +2158,9 @@ private:
     std::function<void(int)> segmentProvider_{};
     AdjointParallel<TypeTag> parallel_;
     AdjointObjectiveFunction<TypeTag> objective_;
+    //! Exact RESV well-control derivatives (cross-step averages, rate-dependent
+    //! coefficients).
+    AdjointResvTerm<TypeTag> resvTerm_;
     AdjointLinearSolver<Matrix, Vector> linearSolver_;
     //! \brief Wells kept in the transposed system instead of Schur-folded.
     bool coupledSystemSolve_ = false;

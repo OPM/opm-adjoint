@@ -150,6 +150,13 @@ struct AdjointFdStep { static constexpr double value = 1e-7; };
 //!        a no-op for explicit-CTF decks.
 struct AdjointPermWellTerm { static constexpr bool value = true; };
 
+//! \brief Exact derivatives of RESV well controls, which the simulator's
+//!        Jacobian lacks: the surface-to-voidage coefficients (and WCONHIST
+//!        targets) use field averages of the previous substep's state (a
+//!        cross-step term), and depend on the well's own rates through the
+//!        Rs/Rv clamp. Default on; a no-op without RESV-controlled producers.
+struct AdjointResvDerivatives { static constexpr bool value = true; };
+
 //! \brief Snapshot stride. 1 (default) stores every accepted substep, which is
 //!        what the backward sweep reads directly. M > 1 stores only every M-th,
 //!        and the substeps in between are recomputed forward from the preceding
@@ -187,6 +194,7 @@ struct AdjointConfig
     double fdStep{1e-7};      //!< central-difference step for FD gradients
     std::string endpointMethod{"whole"}; //!< endpoint FD: "whole" or "stencil"
     bool permWellTerm{true};  //!< dCTF/dperm well-coupling term at perforations
+    bool resvDerivatives{true}; //!< exact RESV-control derivatives
     std::string objective{};  //!< objective specification (CLI string form)
     //! Structured objective from a JSON config; when set it takes precedence
     //! over the `objective` string (which cannot express per-term weights on

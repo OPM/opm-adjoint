@@ -297,6 +297,14 @@ if(HAVE_OPM_TESTS)
       COMMAND ${PROJECT_SOURCE_DIR}/tests/run-adjoint-drsdt-crossterm-test.sh
               $<TARGET_FILE:flow_adjoint>
               ${OPM_TESTS_ROOT}/spe1/SPE1CASE1.DATA ${_testout}/drsdt_crossterm_spe1)
+    # RESV well controls (AdjointResvTerm): the producer on WCONHIST RESV, whose
+    # voidage coefficients/target use field averages of the previous substep and
+    # depend on the well's own rates. The uniform-PV oil-rate gradient must match
+    # FD with --adjoint-resv-derivatives (the default); the off value is printed.
+    add_test(NAME adjoint_fd_resv_spe1
+      COMMAND ${PROJECT_SOURCE_DIR}/tests/run-adjoint-fd-resv-test.sh
+              $<TARGET_FILE:flow_adjoint>
+              ${OPM_TESTS_ROOT}/spe1/SPE1CASE1.DATA ${_testout}/fd_resv_spe1)
     # dCTF/dperm well-coupling term (B1): perm gradient at a defaulted-CTF
     # perforation matches FD (was ~95% off without the well term).
     add_test(NAME adjoint_fd_perm_well_spe1
