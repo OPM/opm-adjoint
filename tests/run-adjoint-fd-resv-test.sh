@@ -19,7 +19,7 @@ FLOW=${1:?flow_adjoint}
 DECK=${2:?SPE1CASE1.DATA}
 OUT=${3:?outdir}
 EPS=${4:-1e-5}
-RELTOL=${5:-2e-3}
+RELTOL=${5:-1e-5}
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
