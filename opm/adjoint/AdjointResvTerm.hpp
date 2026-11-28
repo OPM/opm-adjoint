@@ -50,6 +50,12 @@
  * holds exactly those averages while substep k is replayed) returned, and
  * the control residual must vanish at the converged state.
  *
+ * OPM/opm-simulators 3914e3f38 or later is required. An older simulator
+ * (release 2026.10 included) averages Rs and Rv by hydrocarbon pore volume
+ * like the rest of a, so the coefficients recomputed here are not the ones it
+ * used and the term is inexact. The coefficient self-check then fails, and
+ * logSummary() warns.
+ *
  * A second RESV inexactness sits within the step: the coefficients use
  * Rs = min(qg/qo, Rs_avg) and Rv = min(qo/qg, Rv_avg) with the well's own
  * surface rates, which the simulator holds fixed while differentiating, so
@@ -420,6 +426,16 @@ public:
             maxTargetMismatch_, maxResidual_, maxAbsG_[P], maxAbsG_[T],
             maxAbsG_[Rs], maxAbsG_[Rv], rsClampInactive_, rvClampInactive_,
             rowsCorrected_, maxRowCorrection_));
+        if (std::max(maxCoeffMismatch_, maxTargetMismatch_) > mismatchTolerance_) {
+            OpmLog::warning(fmt::format(
+                "Adjoint RESV controls: the voidage coefficients or the target "
+                "recomputed from the previous substep differ from the simulator's "
+                "(max rel. mismatch {:.1e}, tolerance {:.0e}). The simulator does "
+                "not average the PVT state as assumed here (OPM/opm-simulators "
+                "3914e3f38 or later is required), and the gradients of wells "
+                "under RESV control are inexact.",
+                std::max(maxCoeffMismatch_, maxTargetMismatch_), mismatchTolerance_));
+        }
     }
 
 private:
@@ -776,6 +792,10 @@ private:
             visit(cellIdx, c);
         }
     }
+
+    //! The recomputed coefficients and target equal the simulator's to
+    //! rounding when its averaging is the one of this class.
+    static constexpr Scalar mismatchTolerance_ = 1e-8;
 
     bool enabled_;
     bool switchedOffByUser_;
