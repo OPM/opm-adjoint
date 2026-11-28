@@ -209,7 +209,9 @@ public:
             return sum / solution.size();
         }
         case Kind::WellBhp: {
-            if (!bhpInWindow_(simulator.time() + dt)) {
+            // No BHP, and no gradient, before the schedule defines the well.
+            if (!bhpInWindow_(simulator.time() + dt) ||
+                !wellDefined_(simulator, wellName_)) {
                 return 0.0;
             }
             const auto& wellState =
@@ -391,7 +393,10 @@ private:
     void loadObservations_(const Simulator& simulator, const RateTerm& term) const
     {
         const auto& schedule = simulator.vanguard().schedule();
-        const auto& well = schedule.getWell(term.well, simulator.episodeIndex());
+        // The observations may be loaded before the schedule defines the well.
+        const auto& well = wellDefined_(simulator, term.well)
+            ? schedule.getWell(term.well, simulator.episodeIndex())
+            : schedule.getWellatEnd(term.well);
         // Producers: W?PR keywords, internal rates negative.
         // Injectors:  W?IR keywords, internal rates positive.
         const bool producer = well.isProducer();
