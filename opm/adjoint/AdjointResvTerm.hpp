@@ -566,6 +566,8 @@ private:
             return;
         }
 
+        // Only the accessors are const. Replay assembles D afresh in every
+        // substep, so the change does not outlive the one it is made in.
         auto& eqns = const_cast<std::remove_cvref_t<decltype(well.linSys())>&>(well.linSys());
         auto& block = const_cast<std::remove_cvref_t<decltype(eqns.getD()[0][0])>&>(
             eqns.getD()[0][0]);
