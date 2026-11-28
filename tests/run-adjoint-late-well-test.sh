@@ -38,7 +38,13 @@ if [ -z "${welspecs}" ] || [ -z "${compdat}" ] || [ -z "${wconprod}" ] || [ -z "
     echo "FAIL: unexpected layout of the ${DECKNAME} include files"
     exit 1
 fi
-sed -i "/^${WELL} /d" "${INPUT}/welspecs.txt" "${INPUT}/compdat.txt"
+# -i with a suffix: plain -i is GNU sed only
+sed -i.bak "/^${WELL} /d" "${INPUT}/welspecs.txt" "${INPUT}/compdat.txt" \
+    && rm -f "${INPUT}"/*.bak
+if grep -q "^${WELL} " "${INPUT}/welspecs.txt" "${INPUT}/compdat.txt"; then
+    echo "FAIL: could not move ${WELL} out of the initial WELSPECS/COMPDAT"
+    exit 1
+fi
 printf 'WCONPROD\n/\n' > "${INPUT}/wconprodstep_1.txt"
 printf 'TSTEP\n%s\n/\n\nWELSPECS\n%s\n/\n\nCOMPDAT\n%s\n/\n\nWCONPROD\n%s\n/\n\nTSTEP\n%s\n/\n' \
     "${step}" "${welspecs}" "${compdat}" "${wconprod}" "${step}" > "${INPUT}/tstepstep_1.txt"
