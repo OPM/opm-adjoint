@@ -226,7 +226,7 @@ public:
                 // substep is absent from the well state. Its rate is zero,
                 // as in the summary, and independent of the state, so the
                 // term has its q = 0 value here and no gradient.
-                if (!wellState.has(term.well)) {
+                if (!wellDefined_(simulator, term.well)) {
                     const Scalar v = termValue_(simulator, term, dt, 0.0);
                     termValues_[ti] += v;
                     sum += v;
@@ -304,6 +304,14 @@ public:
     }
 
 private:
+    //! Whether the schedule has defined \p well at the report step being
+    //! replayed. This asks the schedule and not the well state, which in a
+    //! parallel run also lacks the wells of other ranks.
+    static bool wellDefined_(const Simulator& simulator, const std::string& well)
+    {
+        return simulator.vanguard().schedule().hasWell(well, simulator.episodeIndex());
+    }
+
     Scalar termValue_(const Simulator& simulator, const RateTerm& term,
                       double dt, Scalar q) const
     {
