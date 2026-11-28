@@ -273,7 +273,8 @@ multi-term objectives. Guarded by ctest `adjoint_matchref_extended_spe1`
 A rate term of a well that the schedule defines later (`WELSPECS` after the
 first report step) counts as zero rate until the well exists, as in the
 summary, and has no gradient there. The `bhp` objective contributes nothing
-before its well exists. Guarded by ctest `adjoint_late_well_m1d`.
+before its well exists. Guarded by ctest `adjoint_late_well_m1d`, which also
+compares the rate gradient with finite differences.
 
 ### Derivatives (parameters, all FD-verified)
 

@@ -7,9 +7,10 @@
 #
 # Checks, for the oil-rate objective: the objective-only replay and the
 # gradient sweep run and agree on J, J is nonzero, J equals the same objective
-# restricted to the second report step (the first one contributes nothing).
-# The bhp objective and a matchref term, whose reference run has the producer
-# from the start, must run through both modes and agree on a nonzero J as well.
+# restricted to the second report step (the first one contributes nothing),
+# and the pore-volume gradient matches finite differences. The bhp objective
+# and a matchref term, whose reference run has the producer from the start,
+# must run through both modes and agree on a nonzero J as well.
 #
 # Usage:
 #   run-adjoint-late-well-test.sh <flow_adjoint> <inputfiles-dir> <deck-name> <output-dir> [rel-tol]
@@ -105,5 +106,10 @@ for spec in "bhp:${WELL}" "matchref:${WELL}:oil:${REF}/${DECKNAME}"; do
     echo "J (${kind}) = ${J_OBJ} (objective replay), ${J_GRAD} (gradient sweep)"
     same "${kind}" "${J_OBJ}" "${J_GRAD}" || exit 1
 done
+
+LC_ALL=C "${HERE}/run-adjoint-fd-test.sh" "${FLOW}" "${INPUT}" "${DECKNAME}" "${OUTDIR}/fd" \
+    1e-6 1e-4 "${OBJECTIVE}" > "${OUTDIR}/fd.log" 2>&1 \
+    || { tail -5 "${OUTDIR}/fd.log"; echo "FAIL: gradient against finite differences"; exit 1; }
+grep "^cell" "${OUTDIR}/fd.log"
 
 echo "adjoint late-well objective test: PASS"
