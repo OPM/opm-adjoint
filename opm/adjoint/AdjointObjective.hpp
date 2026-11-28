@@ -209,7 +209,9 @@ public:
             return sum / solution.size();
         }
         case Kind::WellBhp: {
-            if (!bhpInWindow_(simulator.time() + dt)) {
+            // No BHP, and no gradient, before the schedule defines the well.
+            if (!bhpInWindow_(simulator.time() + dt) ||
+                !wellDefined_(simulator, wellName_)) {
                 return 0.0;
             }
             const auto& wellState =
@@ -222,6 +224,16 @@ public:
             Scalar sum = 0.0;
             for (std::size_t ti = 0; ti < terms_.size(); ++ti) {
                 const auto& term = terms_[ti];
+                // A well that the schedule has not defined yet at this
+                // substep is absent from the well state. Its rate is zero,
+                // as in the summary, and independent of the state, so the
+                // term has its q = 0 value here and no gradient.
+                if (!wellDefined_(simulator, term.well)) {
+                    const Scalar v = termValue_(simulator, term, dt, 0.0);
+                    termValues_[ti] += v;
+                    sum += v;
+                    continue;
+                }
                 const int phasePos =
                     FluidSystem::canonicalToActivePhaseIdx(term.canonicalPhaseIdx);
                 const Scalar q =
@@ -294,6 +306,14 @@ public:
     }
 
 private:
+    //! Whether the schedule has defined \p well at the report step being
+    //! replayed. This asks the schedule and not the well state, which in a
+    //! parallel run also lacks the wells of other ranks.
+    static bool wellDefined_(const Simulator& simulator, const std::string& well)
+    {
+        return simulator.vanguard().schedule().hasWell(well, simulator.episodeIndex());
+    }
+
     Scalar termValue_(const Simulator& simulator, const RateTerm& term,
                       double dt, Scalar q) const
     {
@@ -373,7 +393,10 @@ private:
     void loadObservations_(const Simulator& simulator, const RateTerm& term) const
     {
         const auto& schedule = simulator.vanguard().schedule();
-        const auto& well = schedule.getWell(term.well, simulator.episodeIndex());
+        // The observations may be loaded before the schedule defines the well.
+        const auto& well = wellDefined_(simulator, term.well)
+            ? schedule.getWell(term.well, simulator.episodeIndex())
+            : schedule.getWellatEnd(term.well);
         // Producers: W?PR keywords, internal rates negative.
         // Injectors:  W?IR keywords, internal rates positive.
         const bool producer = well.isProducer();

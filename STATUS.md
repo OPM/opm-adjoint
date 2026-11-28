@@ -270,6 +270,12 @@ misfit with a warning). Per-term J values are accumulated and logged for
 multi-term objectives. Guarded by ctest `adjoint_matchref_extended_spe1`
 (FD-vs-adjoint under a weighted, windowed, wildcard objective).
 
+A rate term of a well that the schedule defines later (`WELSPECS` after the
+first report step) counts as zero rate until the well exists, as in the
+summary, and has no gradient there. The `bhp` objective contributes nothing
+before its well exists. Guarded by ctest `adjoint_late_well_m1d`, which also
+compares the rate gradient with finite differences.
+
 ### Derivatives (parameters, all FD-verified)
 
 The right column is the gradient **mechanism** — how `dR/dp` (the residual

@@ -127,6 +127,12 @@ add_test(NAME adjoint_fd_pv
   COMMAND ${PROJECT_SOURCE_DIR}/tests/run-adjoint-fd-test.sh
           $<TARGET_FILE:flow_adjoint> ${_m1d} MODEL_1D_DEBUG
           ${_testout}/fd_pv)
+# Rate objective on a well that the schedule defines after the first
+# report step: its terms count as zero rate until the well exists.
+add_test(NAME adjoint_late_well_m1d
+  COMMAND ${PROJECT_SOURCE_DIR}/tests/run-adjoint-late-well-test.sh
+          $<TARGET_FILE:flow_adjoint> ${_m1d} MODEL_1D_DEBUG
+          ${_testout}/late_well_m1d)
 # General (stencil-local) gradient mechanism: random directional-
 # derivative FD on the full gradient vector computed in one sweep.
 add_test(NAME adjoint_dirderiv_pv_m1d
